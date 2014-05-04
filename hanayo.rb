@@ -5,7 +5,6 @@ require "bundler"
 Bundler.require
 require "RMagick"
 
-
 #設定ファイルロード
 begin
 	settings = YAML::load(open("./hanayo.conf"))
@@ -29,17 +28,32 @@ end
 	config.access_token_secret	= settings["oauth_token_secret"]
 end
 
-def dot(status)
-	begin
-		url = status.user.profile_image_url.to_s.gsub("_normal","")
-		filename = File.basename(url)
-		# リプライしてきたユーザーのアイコン画像を保存
-		open(filename, 'wb') do |output|
-			open(url) do |data|
-				output.write(data.read)
-			end
+def mention(status)
+	url = status.user.profile_image_url.to_s.gsub("_normal","")
+	filename = File.basename(url)
+	# リプライしてきたユーザーのアイコン画像を保存
+	open(filename, 'wb') do |output|
+		open(url) do |data|
+			output.write(data.read)
 		end
-	
+	end
+	hanayonize(filename)
+
+end
+
+def from_url(url)
+	filename = File.basename(url)
+	# リプライしてきたユーザーのアイコン画像を保存
+	open(filename, 'wb') do |output|
+		open(url) do |data|
+			output.write(data.read)
+		end
+	end
+	hanayonize(filename)
+end
+
+def hanayonize(filename)
+	begin
 		# なんかいい感じにする
 		puts "b"
 		image = Magick::ImageList.new(filename)
@@ -57,13 +71,29 @@ def dot(status)
 	end
 end
 
-my_sn = @twitter.user.screen_name
+begin
+	my_sn = @twitter.user.screen_name
 
-client = TweetStream::Client.new
-client.userstream do |status|
-	if /^@#{my_sn}\s+クソコラ.*$/i =~ status.text
-		print "dot - "
-		puts status.user.screen_name
-		dot(status)
+	client = TweetStream::Client.new
+	client.userstream do |status|
+		begin
+			p status.text
+			#p /^.*(http|https):\/\/[^\s]*?.(jpg|png|jpeg|gif|bmp).*$/i =~ status.text.downcase
+			if /^@#{my_sn}\s+クソコラ.*$/i =~ status.text
+				print "dot - "
+				puts status.user.screen_name
+				mention(status)
+			end
+			if /^@#{my_sn}\s+.*(http|https):\/\/[^\s]*?.(jpg|png|jpeg|gif|bmp).*$/i =~ status.text.downcase
+				puts "url"
+				m = status.text.downcase.match(/(http|https):\/\/[^\s]*?.(jpg|png|jpeg|gif|bmp)/)
+				p m
+				from_url(m[1])
+			end
+		rescue => exc
+			p exc
+		end
 	end
+rescue => exc
+	p exc
 end
